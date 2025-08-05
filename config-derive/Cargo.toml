@@ -1,0 +1,12 @@
+[package]
+name = "config-derive"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "2.0", features = ["parsing", "derive"] }
+quote = { version = "1.0", features = [] }
+proc-macro2 = { version = "1.0", features = [] }
