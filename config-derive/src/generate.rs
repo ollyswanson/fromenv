@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use syn::Ident;
+use syn::{ExprPath, Ident};
 
 use super::field::{FieldRepr, FieldType};
 
@@ -38,6 +38,7 @@ impl CodeGenerator {
         quote! {
             const _: () = {
                 extern crate config as __config;
+                use #private_path::Converter as _;
 
                 pub struct #builder_name {
                     #(#builder_field_definitions,)*
@@ -116,7 +117,6 @@ impl CodeGenerator {
 
     fn builder_field_gather_error(&self, field: &FieldRepr) -> TokenStream {
         let ident = &field.ident;
-        let ty = field.option.as_ref().unwrap_or(&field.ty);
         let private_path = &self.private_path;
         let errors_ident = &self.errors_ident;
 
@@ -150,15 +150,18 @@ impl CodeGenerator {
             (
                 FieldType::ConfigValue {
                     env,
+                    with,
                     default: Some(default),
                 },
                 false,
             ) => {
+                let with = self.converter_path(with.as_ref());
+
                 quote! {
                     let #ident = if let Some(inner) = self.#ident {
                         Ok(inner)
                     } else {
-                        match #private_path::try_parse_env::<#ty>(#env) {
+                        match #with.convert_from_env(#env) {
                             Some((_, Ok(val))) => Ok(val),
                             Some((value, Err(error))) => {
                                 let err = #private_path::ConfigError::ParseError {
@@ -170,7 +173,7 @@ impl CodeGenerator {
                                 Err(())
                             }
                             None => {
-                                #default.parse::<#ty>().map_err(|error| {
+                                #with.convert(#default).map_err(|error| {
                                     let err = #private_path::ConfigError::ParseError {
                                         env_var: #env.to_string(),
                                         value: #default.to_string(),
@@ -184,12 +187,21 @@ impl CodeGenerator {
                 }
             }
             // #[config(env = "...")] field: T
-            (FieldType::ConfigValue { env, default: None }, false) => {
+            (
+                FieldType::ConfigValue {
+                    env,
+                    with,
+                    default: None,
+                },
+                false,
+            ) => {
+                let with = self.converter_path(with.as_ref());
+
                 quote! {
                    let #ident = if let Some(inner) = self.#ident {
                        Ok(inner)
                    } else {
-                       match #private_path::try_parse_env::<#ty>(#env) {
+                       match #with.convert_from_env(#env) {
                           Some((_, Ok(val))) => Ok(val),
                           Some((value, Err(error))) => {
                               let err = #private_path::ConfigError::ParseError {
@@ -212,12 +224,21 @@ impl CodeGenerator {
                 }
             }
             // #[config(env = "...")] field: Option<T>
-            (FieldType::ConfigValue { env, default: None }, true) => {
+            (
+                FieldType::ConfigValue {
+                    env,
+                    with,
+                    default: None,
+                },
+                true,
+            ) => {
+                let with = self.converter_path(with.as_ref());
+
                 quote! {
                     let #ident = if let Some(inner) = self.#ident {
                         Ok(Some(inner))
                     } else {
-                        match #private_path::try_parse_env::<#ty>(#env) {
+                        match #with.convert_from_env(#env) {
                             Some((_, Ok(val))) => Ok(Some(val)),
                             Some((value, Err(error))) => {
                                 let err = #private_path::ConfigError::ParseError {
@@ -239,6 +260,7 @@ impl CodeGenerator {
             (
                 FieldType::ConfigValue {
                     env: _,
+                    with: _,
                     default: Some(_),
                 },
                 true,
@@ -307,6 +329,21 @@ impl CodeGenerator {
                     }
                 }
             }
+        }
+    }
+
+    fn converter_path(&self, path: Option<&ExprPath>) -> TokenStream {
+        let ident = path
+            .and_then(|path| path.path.get_ident())
+            .map(|ident| ident.to_string())
+            .unwrap_or_else(|| "from_str".into());
+
+        let private_path = &self.private_path;
+
+        match ident.as_str() {
+            "from_str" => quote!(#private_path::from_str),
+            "into" => quote!(#private_path::into),
+            _ => quote!(#path),
         }
     }
 }

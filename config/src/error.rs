@@ -42,12 +42,12 @@ impl fmt::Display for ConfigError {
 
 impl StdError for ConfigError {}
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ConfigErrors(Vec<ConfigError>);
 
 impl ConfigErrors {
     pub fn new() -> Self {
-        Self(Vec::new())
+        Self::default()
     }
 
     pub fn add(&mut self, error: ConfigError) {

@@ -5,9 +5,7 @@ pub fn parse_option(ty: &Type) -> Option<&Type> {
         return None;
     };
 
-    let Some(segment) = type_path.path.segments.last() else {
-        return None;
-    };
+    let segment = type_path.path.segments.last()?;
 
     let generic_args = if segment.ident == "Option" {
         let PathArguments::AngleBracketed(generic_args) = &segment.arguments else {

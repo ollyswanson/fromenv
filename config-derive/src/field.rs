@@ -1,4 +1,4 @@
-use syn::{Field, Ident, LitStr, Meta, Type};
+use syn::{ExprPath, Field, Ident, LitStr, Meta, Type};
 
 use crate::helpers::parse_option;
 
@@ -16,6 +16,7 @@ pub enum FieldType {
     ConfigValue {
         env: LitStr,
         default: Option<LitStr>,
+        with: Option<ExprPath>,
     },
     /// No config attr.
     Standard,
@@ -35,6 +36,7 @@ impl FieldRepr {
         struct Attrs {
             env: Option<LitStr>,
             default: Option<LitStr>,
+            with: Option<ExprPath>,
             nested: bool,
         }
 
@@ -42,6 +44,7 @@ impl FieldRepr {
         let mut attrs = Attrs {
             env: None,
             default: None,
+            with: None,
             nested: false,
         };
 
@@ -62,6 +65,10 @@ impl FieldRepr {
                         let value = meta.value()?;
                         let default: LitStr = value.parse()?;
                         attrs.default = Some(default);
+                    } else if meta.path.is_ident("with") {
+                        let value = meta.value()?;
+                        let with = value.parse()?;
+                        attrs.with = Some(with);
                     } else if meta.path.is_ident("nested") {
                         if meta.input.is_empty() {
                             attrs.nested = true;
@@ -102,11 +109,19 @@ impl FieldRepr {
             Attrs {
                 env: Some(_),
                 default: _,
+                with: _,
                 nested: true,
             }
             | Attrs {
                 env: _,
                 default: Some(_),
+                with: _,
+                nested: true,
+            }
+            | Attrs {
+                env: _,
+                default: _,
+                with: Some(_),
                 nested: true,
             } => {
                 return Err(syn::Error::new_spanned(
@@ -117,17 +132,20 @@ impl FieldRepr {
             Attrs {
                 env: _,
                 default: _,
+                with: _,
                 nested: true,
             } => FieldType::Nested,
             Attrs {
                 env,
                 default,
+                with,
                 nested: false,
             } => FieldType::ConfigValue {
                 env: env.unwrap_or_else(|| {
                     LitStr::new(&ident.to_string().to_uppercase(), ident.span())
                 }),
                 default,
+                with,
             },
         };
 

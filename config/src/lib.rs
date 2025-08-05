@@ -1,3 +1,4 @@
+mod converter;
 mod error;
 
 #[doc(hidden)]
@@ -7,4 +8,4 @@ pub mod __private;
 pub use config_derive::Config;
 pub use error::{ConfigError, ConfigErrors};
 
-type BoxError = Box<dyn std::error::Error + Send + Sync + 'static>;
+type BoxError = Box<dyn std::error::Error + 'static>;
