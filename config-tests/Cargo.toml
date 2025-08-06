@@ -8,3 +8,4 @@ config = { path = "../config" }
 
 [dev-dependencies]
 temp-env = "0.3.6"
+secrecy = "0.10.3"

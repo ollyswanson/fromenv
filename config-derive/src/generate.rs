@@ -333,17 +333,22 @@ impl CodeGenerator {
     }
 
     fn parser_path(&self, path: Option<&ExprPath>) -> TokenStream {
-        let ident = path
-            .and_then(|path| path.path.get_ident())
-            .map(|ident| ident.to_string())
-            .unwrap_or_else(|| "from_str".into());
-
         let private_path = &self.private_path;
 
-        match ident.as_str() {
-            "from_str" => quote!(#private_path::from_str),
-            "into" => quote!(#private_path::into),
-            _ => quote!(#path),
+        if let Some(expr_path) = path {
+            if let Some(ident) = expr_path.path.get_ident() {
+                let ident_str = ident.to_string();
+
+                match ident_str.as_str() {
+                    "from_str" => return quote!(#private_path::from_str),
+                    "into" => return quote!(#private_path::into),
+                    _ => {}
+                }
+            }
+
+            return quote!(#expr_path);
         }
+
+        quote!(#private_path::from_str)
     }
 }
