@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{ExprPath, Ident};
 
-use super::field::{FieldRepr, FieldType};
+use super::parser::{ConfigAttribute, ConfigFieldReceiver};
 
 pub struct CodeGenerator {
     struct_name: Ident,
@@ -19,7 +19,7 @@ impl CodeGenerator {
         }
     }
 
-    pub fn generate(&self, fields: &[FieldRepr]) -> TokenStream {
+    pub fn generate(&self, fields: &[ConfigFieldReceiver]) -> TokenStream {
         let struct_name = &self.struct_name;
         let builder_name = format_ident!("{}Builder", struct_name);
         let private_path = &self.private_path;
@@ -38,7 +38,7 @@ impl CodeGenerator {
         quote! {
             const _: () = {
                 extern crate config as __config;
-                use #private_path::Converter as _;
+                use #private_path::Parser as _;
 
                 pub struct #builder_name {
                     #(#builder_field_definitions,)*
@@ -85,44 +85,44 @@ impl CodeGenerator {
         }
     }
 
-    fn builder_field_definition(&self, field: &FieldRepr) -> TokenStream {
+    fn builder_field_definition(&self, field: &ConfigFieldReceiver) -> TokenStream {
         let ident = &field.ident;
         let ty = field.option.as_ref().unwrap_or(&field.ty);
         let private_path = &self.private_path;
 
-        match &field.field_type {
-            FieldType::Nested => {
+        match &field.config_attr {
+            ConfigAttribute::Nested => {
                 quote! { #ident: Option<<#ty as #private_path::Configurable>::ConfigBuilder> }
             }
-            FieldType::ConfigValue { .. } | FieldType::Standard => {
+            ConfigAttribute::Flat { .. } | ConfigAttribute::None => {
                 quote! { #ident: Option<#ty> }
             }
         }
     }
 
-    fn builder_field_init(&self, field: &FieldRepr) -> TokenStream {
+    fn builder_field_init(&self, field: &ConfigFieldReceiver) -> TokenStream {
         let ident = &field.ident;
         let ty = field.option.as_ref().unwrap_or(&field.ty);
         let private_path = &self.private_path;
 
-        match &field.field_type {
-            FieldType::Nested => {
+        match &field.config_attr {
+            ConfigAttribute::Nested => {
                 quote! { #ident: Some(<#ty as #private_path::Configurable>::configure()) }
             }
-            FieldType::ConfigValue { .. } | FieldType::Standard => {
+            ConfigAttribute::Flat { .. } | ConfigAttribute::None => {
                 quote! { #ident: None }
             }
         }
     }
 
-    fn builder_field_gather_error(&self, field: &FieldRepr) -> TokenStream {
+    fn builder_field_gather_error(&self, field: &ConfigFieldReceiver) -> TokenStream {
         let ident = &field.ident;
         let private_path = &self.private_path;
         let errors_ident = &self.errors_ident;
 
-        match (&field.field_type, field.option.is_some()) {
+        match (&field.config_attr, field.option.is_some()) {
             // #[config(nested)] field: T,
-            (FieldType::Nested, false) => {
+            (ConfigAttribute::Nested, false) => {
                 quote! {
                     let #ident = match #private_path::ConfigBuilder::finalize(self.#ident.take().unwrap()) {
                         Ok(inner) => Ok(inner),
@@ -134,7 +134,7 @@ impl CodeGenerator {
                 }
             }
             // #[config(nested)] field: Option<T>,
-            (FieldType::Nested, true) => {
+            (ConfigAttribute::Nested, true) => {
                 quote! {
                     let #ident = match #private_path::ConfigBuilder::finalize(self.#ident.take().unwrap()) {
                         Ok(inner) => Ok(Some(inner)),
@@ -148,20 +148,20 @@ impl CodeGenerator {
             }
             // #[config(env = "...", default = ...)] field: T
             (
-                FieldType::ConfigValue {
+                ConfigAttribute::Flat {
                     env,
                     with,
                     default: Some(default),
                 },
                 false,
             ) => {
-                let with = self.converter_path(with.as_ref());
+                let with = self.parser_path(with.as_ref());
 
                 quote! {
                     let #ident = if let Some(inner) = self.#ident {
                         Ok(inner)
                     } else {
-                        match #with.convert_from_env(#env) {
+                        match #with.parse_from_env(#env) {
                             Some((_, Ok(val))) => Ok(val),
                             Some((value, Err(error))) => {
                                 let err = #private_path::ConfigError::ParseError {
@@ -173,7 +173,7 @@ impl CodeGenerator {
                                 Err(())
                             }
                             None => {
-                                #with.convert(#default).map_err(|error| {
+                                #with.parse(#default).map_err(|error| {
                                     let err = #private_path::ConfigError::ParseError {
                                         env_var: #env.to_string(),
                                         value: #default.to_string(),
@@ -188,20 +188,20 @@ impl CodeGenerator {
             }
             // #[config(env = "...")] field: T
             (
-                FieldType::ConfigValue {
+                ConfigAttribute::Flat {
                     env,
                     with,
                     default: None,
                 },
                 false,
             ) => {
-                let with = self.converter_path(with.as_ref());
+                let with = self.parser_path(with.as_ref());
 
                 quote! {
                    let #ident = if let Some(inner) = self.#ident {
                        Ok(inner)
                    } else {
-                       match #with.convert_from_env(#env) {
+                       match #with.parse_from_env(#env) {
                           Some((_, Ok(val))) => Ok(val),
                           Some((value, Err(error))) => {
                               let err = #private_path::ConfigError::ParseError {
@@ -225,20 +225,20 @@ impl CodeGenerator {
             }
             // #[config(env = "...")] field: Option<T>
             (
-                FieldType::ConfigValue {
+                ConfigAttribute::Flat {
                     env,
                     with,
                     default: None,
                 },
                 true,
             ) => {
-                let with = self.converter_path(with.as_ref());
+                let with = self.parser_path(with.as_ref());
 
                 quote! {
                     let #ident = if let Some(inner) = self.#ident {
                         Ok(Some(inner))
                     } else {
-                        match #with.convert_from_env(#env) {
+                        match #with.parse_from_env(#env) {
                             Some((_, Ok(val))) => Ok(Some(val)),
                             Some((value, Err(error))) => {
                                 let err = #private_path::ConfigError::ParseError {
@@ -258,14 +258,14 @@ impl CodeGenerator {
             }
             // #[config(default = "...")] field: Option<T>
             (
-                FieldType::ConfigValue {
+                ConfigAttribute::Flat {
                     env: _,
                     with: _,
                     default: Some(_),
                 },
                 true,
             ) => unreachable!("we've already checked that Optional fields can't have a default"),
-            (FieldType::Standard, false) => {
+            (ConfigAttribute::None, false) => {
                 let ident_string = ident.to_string();
                 quote! {
                     let #ident = match self.#ident {
@@ -280,7 +280,7 @@ impl CodeGenerator {
                     };
                 }
             }
-            (FieldType::Standard, true) => {
+            (ConfigAttribute::None, true) => {
                 quote! {
                     let #ident = self.#ident;
                 }
@@ -288,7 +288,7 @@ impl CodeGenerator {
         }
     }
 
-    fn builder_field_return(&self, field: &FieldRepr) -> TokenStream {
+    fn builder_field_return(&self, field: &ConfigFieldReceiver) -> TokenStream {
         let ident = &field.ident;
         let errors_ident = &self.errors_ident;
 
@@ -302,13 +302,13 @@ impl CodeGenerator {
         }
     }
 
-    fn builder_field_setter(&self, field: &FieldRepr) -> TokenStream {
+    fn builder_field_setter(&self, field: &ConfigFieldReceiver) -> TokenStream {
         let ident = &field.ident;
         let ty = field.option.as_ref().unwrap_or(&field.ty);
         let private_path = &self.private_path;
 
-        match &field.field_type {
-            FieldType::Nested => {
+        match &field.config_attr {
+            ConfigAttribute::Nested => {
                 quote! {
                     pub fn #ident<F>(mut self, f: F) -> Self
                     where
@@ -321,7 +321,7 @@ impl CodeGenerator {
                     }
                 }
             }
-            FieldType::ConfigValue { .. } | FieldType::Standard => {
+            ConfigAttribute::Flat { .. } | ConfigAttribute::None => {
                 quote! {
                     pub fn #ident(mut self, #ident: #ty) -> Self {
                         self.#ident = Some(#ident);
@@ -332,7 +332,7 @@ impl CodeGenerator {
         }
     }
 
-    fn converter_path(&self, path: Option<&ExprPath>) -> TokenStream {
+    fn parser_path(&self, path: Option<&ExprPath>) -> TokenStream {
         let ident = path
             .and_then(|path| path.path.get_ident())
             .map(|ident| ident.to_string())

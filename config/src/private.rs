@@ -1,5 +1,5 @@
-pub use crate::converter::{Converter, from_str, into};
 pub use crate::error::{ConfigError, ConfigErrors};
+pub use crate::parser::{Parser, from_str, into};
 
 pub trait Configurable {
     type ConfigBuilder: ConfigBuilder;

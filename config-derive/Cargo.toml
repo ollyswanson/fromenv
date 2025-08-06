@@ -7,6 +7,7 @@ edition = "2024"
 proc-macro = true
 
 [dependencies]
+darling = "0.21.1"
+proc-macro2 = "1.0"
+quote = "1.0"
 syn = { version = "2.0", features = ["parsing", "derive"] }
-quote = { version = "1.0", features = [] }
-proc-macro2 = { version = "1.0", features = [] }

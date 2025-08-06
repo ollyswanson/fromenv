@@ -1,11 +1,12 @@
-mod field;
 mod generate;
 mod helpers;
+mod parser;
 
+use darling::FromDeriveInput;
 use proc_macro2::TokenStream;
-use syn::{Data, DeriveInput, Fields, FieldsNamed, parse_macro_input};
+use syn::{DeriveInput, Visibility, parse_macro_input};
 
-use crate::{field::FieldRepr, generate::CodeGenerator};
+use crate::{generate::CodeGenerator, parser::ConfigReceiver};
 
 #[proc_macro_derive(Config, attributes(config))]
 pub fn derive_config(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -13,31 +14,35 @@ pub fn derive_config(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 
     match impl_derive(input) {
         Ok(output) => output.into(),
-        Err(err) => err.to_compile_error().into(),
+        Err(err) => err.write_errors().into(),
     }
 }
 
-fn impl_derive(input: DeriveInput) -> syn::Result<TokenStream> {
-    let struct_name = input.ident.to_owned();
-
-    let Data::Struct(data) = input.data else {
-        return Err(syn::Error::new_spanned(
-            struct_name,
-            "Config derive only supports structs",
-        ));
+fn impl_derive(input: DeriveInput) -> darling::Result<TokenStream> {
+    let config_struct = match ConfigReceiver::from_derive_input(&input) {
+        Ok(config_struct) => config_struct,
+        Err(e) => {
+            return Err(e);
+        }
     };
 
-    let Fields::Named(FieldsNamed { named: fields, .. }) = data.fields else {
-        return Err(syn::Error::new_spanned(
-            struct_name,
-            "Config derive only supports structs with named fields",
-        ));
-    };
+    let mut accumulator = darling::Error::accumulator();
 
-    let fields = fields
-        .into_iter()
-        .map(FieldRepr::parse)
-        .collect::<syn::Result<Vec<_>>>()?;
+    let struct_name = config_struct.ident;
+
+    if !matches!(config_struct.vis, Visibility::Public(_)) {
+        accumulator.push(
+            darling::Error::custom("Config derive requires a public struct")
+                .with_span(&struct_name.span()),
+        );
+    }
+    accumulator.finish()?;
+
+    let fields = config_struct
+        .data
+        .take_struct()
+        .expect("to have validated that it is a struct")
+        .fields;
 
     let out = CodeGenerator::new(&struct_name).generate(&fields);
     Ok(out)
