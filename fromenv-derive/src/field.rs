@@ -1,34 +1,34 @@
 use darling::{
+    FromField, FromMeta,
     ast::NestedMeta,
     util::{Flag, Override},
-    FromField, FromMeta,
 };
 use proc_macro2::Span;
-use syn::{spanned::Spanned, ExprPath, GenericArgument, Ident, LitStr, PathArguments, Type};
+use syn::{ExprPath, GenericArgument, Ident, LitStr, PathArguments, Type, spanned::Spanned};
 
 #[derive(Debug)]
-pub struct ConfigFieldReceiver {
+pub struct FromEnvFieldReceiver {
     pub ident: Ident,
     pub ty: Type,
     pub option: Option<Type>,
-    pub config_attr: ConfigAttribute,
+    pub env_attr: EnvAttribute,
 }
 
 #[derive(Debug)]
-pub enum ConfigAttribute {
-    /// #[config(env = "...")] OR #[config]
+pub enum EnvAttribute {
+    /// #[env(from = "...")]
     Flat {
-        env: LitStr,
+        from: LitStr,
         default: Option<LitStr>,
         with: Option<ExprPath>,
     },
-    /// #[config(nested)]
+    /// #[env(nested)]
     Nested,
     /// No config attr.
     None,
 }
 
-impl FromField for ConfigFieldReceiver {
+impl FromField for FromEnvFieldReceiver {
     fn from_field(field: &syn::Field) -> darling::Result<Self> {
         let mut accumulator = darling::Error::accumulator();
         let ident = field
@@ -40,7 +40,7 @@ impl FromField for ConfigFieldReceiver {
         let ty = field.ty.to_owned();
         let option = parse_option(&ty).map(ToOwned::to_owned);
 
-        let mut env: Option<Override<LitStr>> = None;
+        let mut from: Option<Override<LitStr>> = None;
         let mut default: Option<LitStr> = None;
         let mut with: Option<ExprPath> = None;
         let mut nested = Flag::default();
@@ -49,7 +49,7 @@ impl FromField for ConfigFieldReceiver {
         let mut with_path_span = Span::call_site();
 
         for attr in &field.attrs {
-            if attr.path().is_ident("config") {
+            if attr.path().is_ident("env") {
                 let meta_list = match attr.meta.require_list() {
                     Ok(list) => list,
                     Err(e) => {
@@ -75,9 +75,9 @@ impl FromField for ConfigFieldReceiver {
                         }
                     };
 
-                    if meta.path().is_ident("env") {
+                    if meta.path().is_ident("from") {
                         match FromMeta::from_meta(&meta) {
-                            Ok(v) => env = Some(v),
+                            Ok(v) => from = Some(v),
                             Err(e) => {
                                 accumulator.push(e);
                             }
@@ -113,11 +113,11 @@ impl FromField for ConfigFieldReceiver {
         }
 
         const NESTED_CLASH: &str = "`nested` cannot be used with other attributes";
-        const DEFAULT_WITHOUT_ENV: &str = "`default` cannot be used without `env`";
-        const WITH_WITHOUT_ENV: &str = "`with` cannot be used without `env`";
+        const DEFAULT_WITHOUT_ENV: &str = "`default` cannot be used without `from`";
+        const WITH_WITHOUT_ENV: &str = "`with` cannot be used without `from`";
         const OPTION_WIH_DEFAULT: &str = "Optional fields cannot have a default";
 
-        match (env, default, with, nested.is_present()) {
+        match (from, default, with, nested.is_present()) {
             (Some(_), _, _, true) | (_, Some(_), _, true) | (_, _, Some(_), true) => {
                 accumulator.push(darling::Error::custom(NESTED_CLASH).with_span(&nested.span()));
 
@@ -149,15 +149,15 @@ impl FromField for ConfigFieldReceiver {
                 ident,
                 ty,
                 option,
-                config_attr: ConfigAttribute::None,
+                env_attr: EnvAttribute::None,
             }),
             (None, None, None, true) => accumulator.finish_with(Self {
                 ident,
                 ty,
                 option,
-                config_attr: ConfigAttribute::Nested,
+                env_attr: EnvAttribute::Nested,
             }),
-            (Some(env), default, with, false) => {
+            (Some(from), default, with, false) => {
                 if option.is_some() && default.is_some() {
                     let err =
                         darling::Error::custom(OPTION_WIH_DEFAULT).with_span(&default_path_span);
@@ -165,7 +165,7 @@ impl FromField for ConfigFieldReceiver {
                     accumulator.push(err);
                 }
 
-                let env = env.unwrap_or_else(|| {
+                let from = from.unwrap_or_else(|| {
                     LitStr::new(&ident.to_string().to_uppercase(), ident.span())
                 });
 
@@ -173,7 +173,11 @@ impl FromField for ConfigFieldReceiver {
                     ident,
                     ty,
                     option,
-                    config_attr: ConfigAttribute::Flat { env, default, with },
+                    env_attr: EnvAttribute::Flat {
+                        from,
+                        default,
+                        with,
+                    },
                 })
             }
         }

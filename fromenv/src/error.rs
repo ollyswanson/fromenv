@@ -3,7 +3,7 @@ use std::{error::Error as StdError, fmt};
 use super::BoxError;
 
 #[derive(Debug)]
-pub enum ConfigError {
+pub enum FromEnvError {
     MissingEnv {
         env_var: String,
     },
@@ -17,7 +17,7 @@ pub enum ConfigError {
     },
 }
 
-impl fmt::Display for ConfigError {
+impl fmt::Display for FromEnvError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::MissingEnv { env_var } => {
@@ -40,21 +40,21 @@ impl fmt::Display for ConfigError {
     }
 }
 
-impl StdError for ConfigError {}
+impl StdError for FromEnvError {}
 
 #[derive(Debug, Default)]
-pub struct ConfigErrors(Vec<ConfigError>);
+pub struct FromEnvErrors(Vec<FromEnvError>);
 
-impl ConfigErrors {
+impl FromEnvErrors {
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn add(&mut self, error: ConfigError) {
+    pub fn add(&mut self, error: FromEnvError) {
         self.0.push(error);
     }
 
-    pub fn extend(&mut self, other: ConfigErrors) {
+    pub fn extend(&mut self, other: FromEnvErrors) {
         self.0.extend(other.0);
     }
 
@@ -66,13 +66,13 @@ impl ConfigErrors {
         self.0.iter().all(|e| {
             matches!(
                 e,
-                ConfigError::MissingEnv { .. } | ConfigError::MissingValue { .. }
+                FromEnvError::MissingEnv { .. } | FromEnvError::MissingValue { .. }
             )
         })
     }
 }
 
-impl fmt::Display for ConfigErrors {
+impl fmt::Display for FromEnvErrors {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "{} configuration errors:", self.0.len())?;
 
@@ -83,4 +83,4 @@ impl fmt::Display for ConfigErrors {
     }
 }
 
-impl StdError for ConfigErrors {}
+impl StdError for FromEnvErrors {}

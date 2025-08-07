@@ -1,17 +1,17 @@
 mod field;
 
 use darling::{
-    ast::{Data, Fields},
     FromDeriveInput,
+    ast::{Data, Fields},
 };
 use proc_macro2::TokenStream;
-use quote::{format_ident, quote, ToTokens};
-use syn::{parse_macro_input, DeriveInput, ExprPath, Ident, Visibility};
+use quote::{ToTokens, format_ident, quote};
+use syn::{DeriveInput, ExprPath, Ident, Visibility, parse_macro_input};
 
-use crate::field::{ConfigAttribute, ConfigFieldReceiver};
+use crate::field::{EnvAttribute, FromEnvFieldReceiver};
 
-#[proc_macro_derive(Config, attributes(config))]
-pub fn derive_config(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+#[proc_macro_derive(FromEnv, attributes(env))]
+pub fn derive_from_env(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
     match impl_derive(input) {
@@ -21,7 +21,7 @@ pub fn derive_config(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 }
 
 fn impl_derive(input: DeriveInput) -> darling::Result<TokenStream> {
-    let config_struct = match ConfigReceiver::from_derive_input(&input) {
+    let config_struct = match FromEnvReceiver::from_derive_input(&input) {
         Ok(config_struct) => config_struct,
         Err(e) => {
             return Err(e);
@@ -35,10 +35,10 @@ fn impl_derive(input: DeriveInput) -> darling::Result<TokenStream> {
 
 #[derive(FromDeriveInput)]
 #[darling(supports(struct_named))]
-struct ConfigReceiver {
+struct FromEnvReceiver {
     pub ident: Ident,
     pub vis: Visibility,
-    pub data: Data<(), ConfigFieldReceiver>,
+    pub data: Data<(), FromEnvFieldReceiver>,
 }
 
 struct ConstTokens {
@@ -47,33 +47,33 @@ struct ConstTokens {
     builder_name: Ident,
 }
 
-impl ToTokens for ConfigReceiver {
+impl ToTokens for FromEnvReceiver {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let consts = ConstTokens {
             builder_name: format_ident!("{}Builder", self.ident),
-            private_path: quote!(__config::__private),
-            errors_ident: quote!(__config_derive_builder_errors),
+            private_path: quote!(__fromenv::__private),
+            errors_ident: quote!(__fromenv_derive_builder_errors),
         };
         let private_path = &consts.private_path;
 
         let impl_struct = self.impl_struct(&consts);
         let builder_struct = self.builder_struct(&consts);
-        let impl_configurable = self.impl_configurable(&consts);
-        let impl_config_builder = self.impl_config_builder(&consts);
+        let impl_from_env = self.impl_from_env(&consts);
+        let impl_from_env_builder = self.impl_from_env_builder(&consts);
         let impl_builder = self.impl_builder(&consts);
 
         let derive = quote! {
             const _: () = {
-                extern crate config as __config;
+                extern crate fromenv as __fromenv;
                 use #private_path::Parser as _;
 
                 #impl_struct
 
                 #builder_struct
 
-                #impl_configurable
+                #impl_from_env
 
-                #impl_config_builder
+                #impl_from_env_builder
 
                 #impl_builder
             };
@@ -83,7 +83,7 @@ impl ToTokens for ConfigReceiver {
     }
 }
 
-impl ConfigReceiver {
+impl FromEnvReceiver {
     fn validate(&self) -> darling::Result<()> {
         if !matches!(&self.vis, Visibility::Public(_)) {
             let err = darling::Error::custom("Config derive requires a public struct")
@@ -101,11 +101,11 @@ impl ConfigReceiver {
             let ident = &field.ident;
             let ty = &field.option.as_ref().unwrap_or(&field.ty);
 
-            match &field.config_attr {
-                ConfigAttribute::Nested => {
-                    quote! { #ident: Option<<#ty as #private_path::Configurable>::ConfigBuilder> }
+            match &field.env_attr {
+                EnvAttribute::Nested => {
+                    quote! { #ident: Option<<#ty as #private_path::FromEnv>::FromEnvBuilder> }
                 }
-                ConfigAttribute::Flat { .. } | ConfigAttribute::None => {
+                EnvAttribute::Flat { .. } | EnvAttribute::None => {
                     quote! { #ident: Option<#ty> }
                 }
             }
@@ -125,14 +125,14 @@ impl ConfigReceiver {
 
         quote! {
             impl #struct_name {
-                pub fn configure() -> #builder_name {
-                    <Self as #private_path::Configurable>::configure()
+                pub fn from_env() -> #builder_name {
+                    <Self as #private_path::FromEnv>::from_env()
                 }
             }
         }
     }
 
-    fn impl_configurable(&self, consts: &ConstTokens) -> TokenStream {
+    fn impl_from_env(&self, consts: &ConstTokens) -> TokenStream {
         let struct_name = &self.ident;
         let builder_name = &consts.builder_name;
         let private_path = &consts.private_path;
@@ -141,21 +141,21 @@ impl ConfigReceiver {
             let ident = &field.ident;
             let ty = field.option.as_ref().unwrap_or(&field.ty);
 
-            match &field.config_attr {
-                ConfigAttribute::Nested => {
-                    quote! { #ident: Some(<#ty as #private_path::Configurable>::configure()) }
+            match &field.env_attr {
+                EnvAttribute::Nested => {
+                    quote! { #ident: Some(<#ty as #private_path::FromEnv>::from_env()) }
                 }
-                ConfigAttribute::Flat { .. } | ConfigAttribute::None => {
+                EnvAttribute::Flat { .. } | EnvAttribute::None => {
                     quote! { #ident: None }
                 }
             }
         });
 
         quote! {
-            impl #private_path::Configurable for #struct_name {
-                type ConfigBuilder = #builder_name;
+            impl #private_path::FromEnv for #struct_name {
+                type FromEnvBuilder = #builder_name;
 
-                fn configure() -> Self::ConfigBuilder {
+                fn from_env() -> Self::FromEnvBuilder {
                     #builder_name {
                         #(#fields,)*
                     }
@@ -164,7 +164,7 @@ impl ConfigReceiver {
         }
     }
 
-    fn impl_config_builder(&self, consts: &ConstTokens) -> TokenStream {
+    fn impl_from_env_builder(&self, consts: &ConstTokens) -> TokenStream {
         let struct_name = &self.ident;
         let private_path = &consts.private_path;
         let errors_ident = &consts.errors_ident;
@@ -174,11 +174,11 @@ impl ConfigReceiver {
         // failing.
         let assignments = self.get_fields().iter().map(|field| {
             let ident = &field.ident;
-            match (&field.config_attr, field.option.is_some()) {
+            match (&field.env_attr, field.option.is_some()) {
                 // #[config(nested)] field: T,
-                (ConfigAttribute::Nested, false) => {
+                (EnvAttribute::Nested, false) => {
                     quote! {
-                        let #ident = match #private_path::ConfigBuilder::finalize(self.#ident.take().unwrap()) {
+                        let #ident = match #private_path::FromEnvBuilder::finalize(self.#ident.take().unwrap()) {
                             Ok(inner) => Ok(inner),
                             Err(errors) => {
                                 #errors_ident.extend(errors);
@@ -188,9 +188,9 @@ impl ConfigReceiver {
                     }
                 }
                 // #[config(nested)] field: Option<T>,
-                (ConfigAttribute::Nested, true) => {
+                (EnvAttribute::Nested, true) => {
                     quote! {
-                        let #ident = match #private_path::ConfigBuilder::finalize(self.#ident.take().unwrap()) {
+                        let #ident = match #private_path::FromEnvBuilder::finalize(self.#ident.take().unwrap()) {
                             Ok(inner) => Ok(Some(inner)),
                             Err(errors) if errors.only_missing_errors() => Ok(None),
                             Err(errors) => {
@@ -202,8 +202,8 @@ impl ConfigReceiver {
                 }
                 // #[config(env = "...", default = ...)] field: T
                 (
-                    ConfigAttribute::Flat {
-                        env,
+                    EnvAttribute::Flat {
+                        from,
                         with,
                         default: Some(default),
                     },
@@ -215,11 +215,11 @@ impl ConfigReceiver {
                         let #ident = if let Some(inner) = self.#ident {
                             Ok(inner)
                         } else {
-                            match #with.parse_from_env(#env) {
+                            match #with.parse_from_env(#from) {
                                 Some((_, Ok(val))) => Ok(val),
                                 Some((value, Err(error))) => {
-                                    let err = #private_path::ConfigError::ParseError {
-                                        env_var: #env.to_string(),
+                                    let err = #private_path::FromEnvError::ParseError {
+                                        env_var: #from.to_string(),
                                         value,
                                         error,
                                     };
@@ -228,8 +228,8 @@ impl ConfigReceiver {
                                 }
                                 None => {
                                     #with.parse(#default).map_err(|error| {
-                                        let err = #private_path::ConfigError::ParseError {
-                                            env_var: #env.to_string(),
+                                        let err = #private_path::FromEnvError::ParseError {
+                                            env_var: #from.to_string(),
                                             value: #default.to_string(),
                                             error: error.into(),
                                         };
@@ -240,10 +240,10 @@ impl ConfigReceiver {
                         };
                     }
                 }
-                // #[config(env = "...")] field: T
+                // #[env(from = "...")] field: T
                 (
-                    ConfigAttribute::Flat {
-                        env,
+                    EnvAttribute::Flat {
+                        from,
                         with,
                         default: None,
                     },
@@ -255,11 +255,11 @@ impl ConfigReceiver {
                     let #ident = if let Some(inner) = self.#ident {
                         Ok(inner)
                     } else {
-                        match #with.parse_from_env(#env) {
+                        match #with.parse_from_env(#from) {
                             Some((_, Ok(val))) => Ok(val),
                             Some((value, Err(error))) => {
-                                let err = #private_path::ConfigError::ParseError {
-                                    env_var: #env.to_string(),
+                                let err = #private_path::FromEnvError::ParseError {
+                                    env_var: #from.to_string(),
                                     value,
                                     error,
                                 };
@@ -267,8 +267,8 @@ impl ConfigReceiver {
                                 Err(())
                             }
                             None => {
-                                let err = #private_path::ConfigError::MissingEnv {
-                                    env_var: #env.to_string(),
+                                let err = #private_path::FromEnvError::MissingEnv {
+                                    env_var: #from.to_string(),
                                 };
                                 #errors_ident.add(err);
                                 Err(())
@@ -277,10 +277,10 @@ impl ConfigReceiver {
                     };
                     }
                 }
-                // #[config(env = "...")] field: Option<T>
+                // #[env(from = "...")] field: Option<T>
                 (
-                    ConfigAttribute::Flat {
-                        env,
+                    EnvAttribute::Flat {
+                        from,
                         with,
                         default: None,
                     },
@@ -292,11 +292,11 @@ impl ConfigReceiver {
                         let #ident = if let Some(inner) = self.#ident {
                             Ok(Some(inner))
                         } else {
-                            match #with.parse_from_env(#env) {
+                            match #with.parse_from_env(#from) {
                                 Some((_, Ok(val))) => Ok(Some(val)),
                                 Some((value, Err(error))) => {
-                                    let err = #private_path::ConfigError::ParseError {
-                                        env_var: #env.to_string(),
+                                    let err = #private_path::FromEnvError::ParseError {
+                                        env_var: #from.to_string(),
                                         value,
                                         error,
                                     };
@@ -310,22 +310,22 @@ impl ConfigReceiver {
                         };
                     }
                 }
-                // #[config(default = "...")] field: Option<T>
+                // #[env(default = "...")] field: Option<T>
                 (
-                    ConfigAttribute::Flat {
-                        env: _,
+                    EnvAttribute::Flat {
+                        from: _,
                         with: _,
                         default: Some(_),
                     },
                     true,
                 ) => unreachable!("we've already checked that Optional fields can't have a default"),
-                (ConfigAttribute::None, false) => {
+                (EnvAttribute::None, false) => {
                     let ident_string = ident.to_string();
                     quote! {
                         let #ident = match self.#ident {
                             Some(inner) => Ok(inner),
                             None => {
-                                let err = #private_path::ConfigError::MissingValue {
+                                let err = #private_path::FromEnvError::MissingValue {
                                     field: String::from(#ident_string),
                                 };
                                 #errors_ident.add(err);
@@ -334,7 +334,7 @@ impl ConfigReceiver {
                         };
                     }
                 }
-                (ConfigAttribute::None, true) => {
+                (EnvAttribute::None, true) => {
                     quote! {
                         let #ident = self.#ident;
                     }
@@ -356,11 +356,11 @@ impl ConfigReceiver {
         });
 
         quote! {
-            impl #private_path::ConfigBuilder for #builder_name {
+            impl #private_path::FromEnvBuilder for #builder_name {
                 type Target = #struct_name;
 
-                fn finalize(mut self) -> Result<Self::Target, #private_path::ConfigErrors> {
-                    let mut #errors_ident = #private_path::ConfigErrors::new();
+                fn finalize(mut self) -> Result<Self::Target, #private_path::FromEnvErrors> {
+                    let mut #errors_ident = #private_path::FromEnvErrors::new();
 
                     #(#assignments)*
 
@@ -380,12 +380,12 @@ impl ConfigReceiver {
             let ident = &field.ident;
             let ty = &field.option.as_ref().unwrap_or(&field.ty);
 
-            match &field.config_attr {
-                ConfigAttribute::Nested => {
+            match &field.env_attr {
+                EnvAttribute::Nested => {
                     quote! {
                         pub fn #ident<F>(mut self, f: F) -> Self
                         where
-                            F: FnOnce(<#ty as #private_path::Configurable>::ConfigBuilder) -> <#ty as #private_path::Configurable>::ConfigBuilder,
+                            F: FnOnce(<#ty as #private_path::FromEnv>::FromEnvBuilder) -> <#ty as #private_path::FromEnv>::FromEnvBuilder,
                         {
                             let nested = self.#ident.take().unwrap();
                             let nested = f(nested);
@@ -394,7 +394,7 @@ impl ConfigReceiver {
                         }
                     }
                 }
-                ConfigAttribute::Flat { .. } | ConfigAttribute::None => {
+                EnvAttribute::Flat { .. } | EnvAttribute::None => {
                     quote! {
                         pub fn #ident(mut self, #ident: #ty) -> Self {
                             self.#ident = Some(#ident);
@@ -409,14 +409,14 @@ impl ConfigReceiver {
             impl #builder_name {
                 #(#setters)*
 
-                pub fn finalize(self) -> Result<<Self as #private_path::ConfigBuilder>::Target, #private_path::ConfigErrors> {
-                    #private_path::ConfigBuilder::finalize(self)
+                pub fn finalize(self) -> Result<<Self as #private_path::FromEnvBuilder>::Target, #private_path::FromEnvErrors> {
+                    #private_path::FromEnvBuilder::finalize(self)
                 }
             }
         }
     }
 
-    fn get_fields(&self) -> &Fields<ConfigFieldReceiver> {
+    fn get_fields(&self) -> &Fields<FromEnvFieldReceiver> {
         let Data::Struct(fields) = &self.data else {
             panic!("we've asserted that it's a struct");
         };

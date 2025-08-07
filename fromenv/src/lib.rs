@@ -5,8 +5,8 @@ mod parser;
 #[path = "private.rs"]
 pub mod __private;
 
-pub use config_derive::Config;
-pub use error::{ConfigError, ConfigErrors};
+pub use error::{FromEnvError, FromEnvErrors};
+pub use fromenv_derive::FromEnv;
 pub use parser::ParserResult;
 
 type BoxError = Box<dyn std::error::Error + 'static>;

@@ -1,19 +1,19 @@
 use std::str;
 
-use config::{Config, ParserResult};
+use fromenv::{FromEnv, ParserResult};
 
 #[test]
 fn with_into_parser() {
-    #[derive(Config, Debug, PartialEq)]
+    #[derive(FromEnv, Debug, PartialEq)]
     pub struct Config {
-        #[config(env, default = "postgres://postgres@postgres/postgres", with = into)]
+        #[env(from, default = "postgres://postgres@postgres/postgres", with = into)]
         database_url: String,
     }
 
     let expected = Config {
         database_url: "postgres://postgres@postgres/postgres".into(),
     };
-    let actual = Config::configure().finalize().unwrap();
+    let actual = Config::from_env().finalize().unwrap();
 
     assert_eq!(expected, actual);
 }
@@ -22,9 +22,9 @@ fn with_into_parser() {
 fn with_into_secret() {
     use secrecy::ExposeSecret;
 
-    #[derive(Config, Debug)]
+    #[derive(FromEnv, Debug)]
     pub struct Config {
-        #[config(env = "API_KEY", with = into)]
+        #[env(from = "API_KEY", with = into)]
         api_key: secrecy::SecretString,
     }
 
@@ -33,7 +33,7 @@ fn with_into_secret() {
     };
 
     let actual = temp_env::with_var("API_KEY", Some("definitely-not-an-api-key"), || {
-        Config::configure().finalize()
+        Config::from_env().finalize()
     })
     .unwrap();
 
@@ -49,19 +49,21 @@ fn with_custom_parser_function() {
         let mut v = s.as_bytes().to_vec();
         v.rotate_left(2);
         let s = str::from_utf8(&v)?;
-        s.parse::<u16>().map_err(|e| e.into())
+        s.strip_prefix("0o")
+            .ok_or("not an octal".into())
+            .and_then(|s| u16::from_str_radix(s, 8).map_err(|e| e.into()))
     }
 
-    #[derive(Config, Debug, PartialEq)]
+    #[derive(FromEnv, Debug, PartialEq)]
     pub struct Config {
-        #[config(env = "SERVER_PORT", with = frobnicate)]
+        #[env(from = "SERVER_PORT", with = frobnicate)]
         port: u16,
     }
 
-    let expected = Config { port: 30 };
+    let expected = Config { port: 24 };
 
-    let actual = temp_env::with_var("SERVER_PORT", Some("3000"), || {
-        Config::configure().finalize()
+    let actual = temp_env::with_var("SERVER_PORT", Some("300o"), || {
+        Config::from_env().finalize()
     })
     .unwrap();
 
@@ -74,7 +76,7 @@ fn collection_types() {
     // simulate module structure
     mod foo {
         pub mod bar {
-            use config::ParserResult;
+            use fromenv::ParserResult;
 
             pub fn comma_separated(s: &str) -> ParserResult<Vec<String>> {
                 Ok(s.split(',').map(ToOwned::to_owned).collect())
@@ -82,11 +84,11 @@ fn collection_types() {
         }
 
         pub mod baz {
-            use config::Config;
+            use fromenv::FromEnv;
 
-            #[derive(Config, Debug, PartialEq)]
+            #[derive(FromEnv, Debug, PartialEq)]
             pub struct Config {
-                #[config(env = "KAFKA_TOPICS", with = super::bar::comma_separated)]
+                #[env(from = "KAFKA_TOPICS", with = super::bar::comma_separated)]
                 pub topics: Vec<String>,
             }
         }
@@ -97,7 +99,7 @@ fn collection_types() {
     };
 
     let actual = temp_env::with_var("KAFKA_TOPICS", Some("a,b,c"), || {
-        Config::configure().finalize()
+        Config::from_env().finalize()
     })
     .unwrap();
 

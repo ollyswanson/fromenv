@@ -5,23 +5,23 @@ fn nested_config_structs() {
 
     mod foo {
         pub mod bar {
-            use config::Config;
+            use fromenv::FromEnv;
 
-            #[derive(Config, Debug, PartialEq)]
+            #[derive(FromEnv, Debug, PartialEq)]
             pub struct KafkaConfig {
-                #[config(env = "KAFKA_BROKERS")]
+                #[env(from = "KAFKA_BROKERS")]
                 pub brokers: String,
             }
         }
 
         pub mod baz {
-            use config::Config;
+            use fromenv::FromEnv;
 
-            #[derive(Config, Debug, PartialEq)]
+            #[derive(FromEnv, Debug, PartialEq)]
             pub struct AppConfig {
-                #[config(env)]
+                #[env(from)]
                 pub database_url: String,
-                #[config(nested)]
+                #[env(nested)]
                 pub kafka: super::bar::KafkaConfig,
             }
         }
@@ -42,7 +42,7 @@ fn nested_config_structs() {
             ),
             ("KAFKA_BROKERS", Some("kafka:29092")),
         ],
-        || AppConfig::configure().finalize(),
+        || AppConfig::from_env().finalize(),
     )
     .unwrap();
 
@@ -56,23 +56,23 @@ fn nested_builder_methods() {
 
     mod foo {
         pub mod bar {
-            use config::Config;
+            use fromenv::FromEnv;
 
-            #[derive(Config, Debug, PartialEq)]
+            #[derive(FromEnv, Debug, PartialEq)]
             pub struct KafkaConfig {
-                #[config(env = "KAFKA_BROKERS")]
+                #[env(from = "KAFKA_BROKERS")]
                 pub brokers: String,
             }
         }
 
         pub mod baz {
-            use config::Config;
+            use fromenv::FromEnv;
 
-            #[derive(Config, Debug, PartialEq)]
+            #[derive(FromEnv, Debug, PartialEq)]
             pub struct AppConfig {
-                #[config(env)]
+                #[env(from)]
                 pub database_url: String,
-                #[config(nested)]
+                #[env(nested)]
                 pub kafka: super::bar::KafkaConfig,
             }
         }
@@ -85,7 +85,7 @@ fn nested_builder_methods() {
         },
     };
 
-    let actual = AppConfig::configure()
+    let actual = AppConfig::from_env()
         .database_url("postgres://postgres@postgres/postgres".into())
         .kafka(|kafka| kafka.brokers("kafka:29092".into()))
         .finalize()
@@ -101,25 +101,25 @@ fn optional_nested_structs() {
 
     mod foo {
         pub mod bar {
-            use config::Config;
+            use fromenv::FromEnv;
 
-            #[derive(Config, Debug, PartialEq)]
+            #[derive(FromEnv, Debug, PartialEq)]
             pub struct KafkaConfig {
-                #[config(env = "KAFKA_BROKERS")]
+                #[env(from = "KAFKA_BROKERS")]
                 pub brokers: String,
-                #[config(env = "KAFKA_TOPICS")]
+                #[env(from = "KAFKA_TOPICS")]
                 pub topics: String,
             }
         }
 
         pub mod baz {
-            use config::Config;
+            use fromenv::FromEnv;
 
-            #[derive(Config, Debug, PartialEq)]
+            #[derive(FromEnv, Debug, PartialEq)]
             pub struct AppConfig {
-                #[config(env)]
+                #[env(from)]
                 pub database_url: String,
-                #[config(nested)]
+                #[env(nested)]
                 pub kafka: Option<super::bar::KafkaConfig>,
             }
         }
@@ -139,7 +139,7 @@ fn optional_nested_structs() {
             ),
             ("KAFKA_BROKERS", Some("kafka:29092")),
         ],
-        || AppConfig::configure().finalize(),
+        || AppConfig::from_env().finalize(),
     )
     .unwrap();
 
