@@ -1,20 +1,10 @@
 use darling::{
-    FromDeriveInput, FromField, FromMeta,
-    ast::{Data, NestedMeta},
+    ast::NestedMeta,
     util::{Flag, Override},
+    FromField, FromMeta,
 };
 use proc_macro2::Span;
-use syn::{ExprPath, Ident, LitStr, Type, Visibility, spanned::Spanned};
-
-use crate::helpers::parse_option;
-
-#[derive(FromDeriveInput)]
-#[darling(supports(struct_named))]
-pub struct ConfigReceiver {
-    pub ident: Ident,
-    pub vis: Visibility,
-    pub data: Data<(), ConfigFieldReceiver>,
-}
+use syn::{spanned::Spanned, ExprPath, GenericArgument, Ident, LitStr, PathArguments, Type};
 
 #[derive(Debug)]
 pub struct ConfigFieldReceiver {
@@ -188,4 +178,29 @@ impl FromField for ConfigFieldReceiver {
             }
         }
     }
+}
+
+fn parse_option(ty: &Type) -> Option<&Type> {
+    let Type::Path(type_path) = ty else {
+        return None;
+    };
+
+    let segment = type_path.path.segments.last()?;
+
+    let generic_args = if segment.ident == "Option" {
+        let PathArguments::AngleBracketed(generic_args) = &segment.arguments else {
+            return None;
+        };
+        generic_args
+    } else {
+        return None;
+    };
+
+    if generic_args.args.len() == 1 {
+        if let GenericArgument::Type(inner_type) = &generic_args.args[0] {
+            return Some(inner_type);
+        }
+    }
+
+    None
 }
