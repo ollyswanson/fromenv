@@ -1,0 +1,7 @@
+---
+source: fromenv/tests/insta.rs
+expression: "AppConfig::requirements()"
+---
+DATABASE_URL=postgres://postgres@postgres/postgres
+SOCKET_ADDR=127.0.0.1:3000
+KAFKA_BROKER=

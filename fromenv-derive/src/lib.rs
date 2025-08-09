@@ -128,6 +128,12 @@ impl FromEnvReceiver {
                 pub fn from_env() -> #builder_name {
                     <Self as #private_path::FromEnv>::from_env()
                 }
+
+                pub fn requirements() -> String {
+                    let mut requirements = ::std::string::String::new();
+                    <Self as #private_path::FromEnv>::requirements(&mut requirements);
+                    requirements
+                }
             }
         }
     }
@@ -151,6 +157,35 @@ impl FromEnvReceiver {
             }
         });
 
+        let requirements = self.get_fields().iter().map(|field| {
+            let ty = field.option.as_ref().unwrap_or(&field.ty);
+
+            match &field.env_attr {
+                EnvAttribute::Nested => {
+                    quote! {
+                        <#ty as #private_path::FromEnv>::requirements(requirements);
+                    }
+                }
+                EnvAttribute::Flat {
+                    from,
+                    default,
+                    with: _,
+                } => {
+                    let from = from.value();
+                    let default = default
+                        .as_ref()
+                        .map(|default| default.value())
+                        .unwrap_or(String::new());
+                    let out = format!("{from}={default}\n");
+
+                    quote! {
+                        requirements.push_str(#out);
+                    }
+                }
+                _ => TokenStream::new(),
+            }
+        });
+
         quote! {
             impl #private_path::FromEnv for #struct_name {
                 type FromEnvBuilder = #builder_name;
@@ -159,6 +194,10 @@ impl FromEnvReceiver {
                     #builder_name {
                         #(#fields,)*
                     }
+                }
+
+                fn requirements(requirements: &mut ::std::string::String) {
+                    #(#requirements)*
                 }
             }
         }

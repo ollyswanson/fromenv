@@ -123,3 +123,21 @@ fn optional_fields() {
 
     assert_eq!(expected, actual);
 }
+
+#[test]
+fn requirements() {
+    #[derive(FromEnv, Debug, PartialEq)]
+    pub struct Config {
+        #[env(from = "OTEL_RESOURCE_ATTRIBUTES")]
+        resource_attributes: Option<String>,
+        #[env(from = "OTEL_LOG_LEVEL", default = "info", with = into)]
+        log_level: String,
+    }
+
+    let actual = Config::requirements();
+    let expected = "\
+        OTEL_RESOURCE_ATTRIBUTES=\n\
+        OTEL_LOG_LEVEL=info\n\
+    ";
+    assert_eq!(expected, actual);
+}
