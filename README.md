@@ -227,3 +227,10 @@ If you don't have the same itch, or would rather find other workarounds, or (sen
 * [envstruct](https://crates.io/crates/envstruct) - I came across this crate
   while hunting for a crate name that hadn't already been taken. It has a _very_
   similar API, and takes a different but nice approach.
+
+#### License
+
+<sup>
+Licensed under either of <a href="LICENSE-APACHE">Apache License, Version
+2.0</a> or <a href="LICENSE-MIT">MIT license</a> at your option.
+</sup>
