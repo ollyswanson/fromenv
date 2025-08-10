@@ -9,4 +9,5 @@ fromenv-derive = { path = "../fromenv-derive" }
 [dev-dependencies]
 insta = "1.43.1"
 temp-env = "0.3.6"
+trybuild = "1.0.110"
 secrecy = "0.10.3"

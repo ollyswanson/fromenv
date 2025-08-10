@@ -1,0 +1,5 @@
+error: Config derive requires a public struct
+ --> tests/ui/01-struct-must-be-pub.rs:4:8
+  |
+4 | struct Config {}
+  |        ^^^^^^

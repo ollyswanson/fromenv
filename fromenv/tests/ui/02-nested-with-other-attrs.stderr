@@ -1,0 +1,5 @@
+error: `nested` cannot be used with other attributes
+ --> tests/ui/02-nested-with-other-attrs.rs:5:17
+  |
+5 |     #[env(from, nested)]
+  |                 ^^^^^^
