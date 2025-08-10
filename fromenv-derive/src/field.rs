@@ -4,13 +4,16 @@ use darling::{
     util::{Flag, Override},
 };
 use proc_macro2::Span;
-use syn::{ExprPath, GenericArgument, Ident, LitStr, PathArguments, Type, spanned::Spanned};
+use syn::{
+    Attribute, ExprPath, GenericArgument, Ident, LitStr, PathArguments, Type, spanned::Spanned,
+};
 
 #[derive(Debug)]
 pub struct FromEnvFieldReceiver {
     pub ident: Ident,
     pub ty: Type,
     pub option: Option<Type>,
+    pub doc_attrs: Vec<Attribute>,
     pub env_attr: EnvAttribute,
 }
 
@@ -47,6 +50,8 @@ impl FromField for FromEnvFieldReceiver {
 
         let mut default_path_span = Span::call_site();
         let mut with_path_span = Span::call_site();
+
+        let mut doc_attrs = Vec::new();
 
         for attr in &field.attrs {
             if attr.path().is_ident("env") {
@@ -111,6 +116,8 @@ impl FromField for FromEnvFieldReceiver {
                         );
                     }
                 }
+            } else if attr.path().is_ident("doc") {
+                doc_attrs.push(attr.clone());
             }
         }
 
@@ -151,12 +158,14 @@ impl FromField for FromEnvFieldReceiver {
                 ident,
                 ty,
                 option,
+                doc_attrs,
                 env_attr: EnvAttribute::None,
             }),
             (None, None, None, true) => accumulator.finish_with(Self {
                 ident,
                 ty,
                 option,
+                doc_attrs,
                 env_attr: EnvAttribute::Nested,
             }),
             (Some(from), default, with, false) => {
@@ -175,6 +184,7 @@ impl FromField for FromEnvFieldReceiver {
                     ident,
                     ty,
                     option,
+                    doc_attrs,
                     env_attr: EnvAttribute::Flat {
                         from,
                         default,

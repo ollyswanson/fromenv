@@ -424,10 +424,12 @@ impl FromEnvReceiver {
         let setters = self.get_fields().iter().map(|field| {
             let ident = &field.ident;
             let ty = &field.option.as_ref().unwrap_or(&field.ty);
+            let doc_attrs = &field.doc_attrs;
 
             match &field.env_attr {
                 EnvAttribute::Nested => {
                     quote! {
+                        #(#doc_attrs)*
                         pub fn #ident<F>(mut self, f: F) -> Self
                         where
                             F: FnOnce(<#ty as #private_path::FromEnv>::FromEnvBuilder) -> <#ty as #private_path::FromEnv>::FromEnvBuilder,
@@ -441,6 +443,7 @@ impl FromEnvReceiver {
                 }
                 EnvAttribute::Flat { .. } | EnvAttribute::None => {
                     quote! {
+                        #(#doc_attrs)*
                         pub fn #ident(mut self, #ident: #ty) -> Self {
                             self.#ident = Some(#ident);
                             self
