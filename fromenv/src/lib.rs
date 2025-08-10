@@ -7,7 +7,7 @@ mod parser;
 #[path = "private.rs"]
 pub mod __private;
 
-pub use error::{FromEnvError, FromEnvErrors};
+pub use error::FromEnvErrors;
 
 /// Derive macro for loading configuration from environment variables.
 ///
