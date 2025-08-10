@@ -4,6 +4,9 @@ resolver = "2"
 
 [workspace.package]
 authors = ["Olly Swanson <42551149+ollyswanson@users.noreply.github.com>"]
+description = "Derive-based, type-safe configuration from environment variables"
 edition = "2024"
+keywords = ["config", "env", "derive", "macro", "builder"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
+repository = "https://github.com/ollyswanson/fromenv"
