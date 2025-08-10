@@ -48,6 +48,22 @@ impl fmt::Display for FromEnvError {
 
 impl StdError for FromEnvError {}
 
+/// A collection of configuration errors encountered during environment variable
+/// loading.
+///
+/// This error type is returned from the `finalize()` method when configuration
+/// loading fails. It collects all errors rather than failing on the first one,
+/// making it easier to fix multiple issues at once.
+///
+/// # Display Format
+///
+/// When displayed, this error shows a count and list of all issues:
+///
+/// ```text
+/// 2 configuration errors:
+///   1. `Config.database_url`: Missing required environment variable 'DATABASE_URL'
+///   2. `Config.port`: Failed to parse 'PORT'="invalid": invalid digit found in string
+/// ```
 #[derive(Debug, Default)]
 pub struct FromEnvErrors(Vec<FromEnvError>);
 
