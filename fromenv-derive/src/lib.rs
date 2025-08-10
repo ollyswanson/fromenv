@@ -213,6 +213,8 @@ impl FromEnvReceiver {
         // failing.
         let assignments = self.get_fields().iter().map(|field| {
             let ident = &field.ident;
+            let path = format!("{struct_name}.{ident}");
+
             match (&field.env_attr, field.option.is_some()) {
                 // #[config(nested)] field: T,
                 (EnvAttribute::Nested, false) => {
@@ -258,6 +260,7 @@ impl FromEnvReceiver {
                                 Some((_, Ok(val))) => Ok(val),
                                 Some((value, Err(error))) => {
                                     let err = #private_path::FromEnvError::ParseError {
+                                        path: #path.to_string(),
                                         env_var: #from.to_string(),
                                         value,
                                         error,
@@ -268,6 +271,7 @@ impl FromEnvReceiver {
                                 None => {
                                     #with.parse(#default).map_err(|error| {
                                         let err = #private_path::FromEnvError::ParseError {
+                                            path: #path.to_string(),
                                             env_var: #from.to_string(),
                                             value: #default.to_string(),
                                             error: error.into(),
@@ -298,6 +302,7 @@ impl FromEnvReceiver {
                             Some((_, Ok(val))) => Ok(val),
                             Some((value, Err(error))) => {
                                 let err = #private_path::FromEnvError::ParseError {
+                                    path: #path.to_string(),
                                     env_var: #from.to_string(),
                                     value,
                                     error,
@@ -307,6 +312,7 @@ impl FromEnvReceiver {
                             }
                             None => {
                                 let err = #private_path::FromEnvError::MissingEnv {
+                                    path: #path.to_string(),
                                     env_var: #from.to_string(),
                                 };
                                 #errors_ident.add(err);
@@ -335,6 +341,7 @@ impl FromEnvReceiver {
                                 Some((_, Ok(val))) => Ok(Some(val)),
                                 Some((value, Err(error))) => {
                                     let err = #private_path::FromEnvError::ParseError {
+                                        path: #path.to_string(),
                                         env_var: #from.to_string(),
                                         value,
                                         error,
@@ -359,13 +366,12 @@ impl FromEnvReceiver {
                     true,
                 ) => unreachable!("we've already checked that Optional fields can't have a default"),
                 (EnvAttribute::None, false) => {
-                    let ident_string = ident.to_string();
                     quote! {
                         let #ident = match self.#ident {
                             Some(inner) => Ok(inner),
                             None => {
                                 let err = #private_path::FromEnvError::MissingValue {
-                                    field: String::from(#ident_string),
+                                    path: #path.to_string(),
                                 };
                                 #errors_ident.add(err);
                                 Err(())

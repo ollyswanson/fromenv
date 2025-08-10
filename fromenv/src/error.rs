@@ -5,36 +5,42 @@ use super::BoxError;
 #[derive(Debug)]
 pub enum FromEnvError {
     MissingEnv {
+        path: String,
         env_var: String,
     },
     ParseError {
+        path: String,
         env_var: String,
         value: String,
         error: BoxError,
     },
     MissingValue {
-        field: String,
+        path: String,
     },
 }
 
 impl fmt::Display for FromEnvError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::MissingEnv { env_var } => {
-                write!(f, "Missing required environment variable '{env_var}'")
+            Self::MissingEnv { path, env_var } => {
+                write!(
+                    f,
+                    "`{path}`: Missing required environment variable '{env_var}'"
+                )
             }
             Self::ParseError {
+                path,
                 env_var,
                 value,
                 error,
             } => {
                 write!(
                     f,
-                    "Failed to parse '{value}' from environment variable '{env_var}': {error}"
+                    "`{path}`: Failed to parse '{env_var}'=\"{value}\": {error}"
                 )
             }
-            Self::MissingValue { field } => {
-                write!(f, "No value provided for '{field}'")
+            Self::MissingValue { path } => {
+                write!(f, "`{path}`: No value provided")
             }
         }
     }
