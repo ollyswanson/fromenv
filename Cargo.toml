@@ -1,3 +1,9 @@
 [workspace]
 members = ["fromenv", "fromenv-derive"]
 resolver = "2"
+
+[workspace.package]
+authors = ["Olly Swanson <42551149+ollyswanson@users.noreply.github.com>"]
+edition = "2024"
+license = "MIT OR Apache-2.0"
+readme = "README.md"

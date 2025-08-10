@@ -1,27 +1,29 @@
 # FromEnv
 
+<!-- cargo-rdme start -->
+
 A declarative, type-safe library for loading configuration from environment
 variables.
 
 ## Features
 
-* A simple derive macro, `FromEnv`, that handles environment variable to struct
-  mapping.
+* A simple derive macro, `FromEnv`, that handles environment variable to
+struct mapping.
 * Composition of configuration structs using the `#[env(nested)]` attribute.
 * Default values using the `#[env(from, default = "...")]` attribute.
 * Custom parsers using the `#[env(from, with = my_parser)]` attribute.
-* Comprehensive error reporting that collects all configuration issues before
-  failing.
+* Comprehensive error reporting that collects all configuration issues
+before failing.
 * A type-safe builder pattern for overriding configuration values.
 * Opinionated error handling, parsing errors aren't silently ignored when
-  defaults are provided.
+defaults are provided.
 * Documentation of configuration options using the `requirements` method.
 
 ## Usage
 
 ### Basic example
 
-```rust,no_run
+```rust
 use fromenv::FromEnv;
 
 #[derive(FromEnv, Debug)]
@@ -70,14 +72,16 @@ pub struct Config {
 
 ### Custom parsers
 
-By default, `FromEnv` will use the types `FromStr` implementation. This can be specified explicitly using `#[env(from, with = fromstr)]`.
+By default, `FromEnv` will use the types `FromStr` implementation. This can
+be specified explicitly using `#[env(from, with = fromstr)]`.
 
-You can also specify `#[env(from, with = into)]` which can be useful for types,
-such as [secrecy's](https://crates.io/crates/secrecy)
+You can also specify `#[env(from, with = into)]` which can be useful for
+types, such as [secrecy's](https://crates.io/crates/secrecy)
 [`SecretString`](https://docs.rs/secrecy/0.10.3/secrecy/type.SecretString.html)
 type which can't be constructed using `FromStr` but can using `Into`.
 
-In addition to these built in parsers, you can supply a path to your own parser function.
+In addition to these built in parsers, you can supply a path to your own
+parser function.
 
 
 ```rust
@@ -106,17 +110,15 @@ pub struct Config {
 }
 ```
 
-
-
 ### Optional Fields
 
 Both "flat" and "nested" fields can be made optional. When making a field optional:
 
 * A default _cannot_ be specified.
 * Parse errors will _not_ be ignored.
-* When used on a `nested` configuration, the field will be set to `None` if and
-  only if all of the errors returned from attempting to parse it are due to
-  missing env vars or values.
+* When used on a `nested` configuration, the field will be set to `None` if
+and only if all of the errors returned from attempting to parse it are due
+to missing env vars or values.
 
 ```rust
 use fromenv::FromEnv;
@@ -162,7 +164,6 @@ pub struct Config {
     telemetry: TelemetryConfig,
 }
 
-# #[allow(clippy::test_attr_in_doctest)]
 #[test]
 fn test() {
     // Override `port` and `telemetry.log_level` but read `database_url` from
@@ -175,19 +176,20 @@ fn test() {
 
     // Rest of the test...
 }
-
 ```
-
 
 ## Attribute Options
 
 * `#[env(from = "ENV_NAME")]` - Load from specified environment variable.
-* `#[env(from)]` - Load from environment variable matching field's uppercase name.
-* `#[env(from, default = "value")]` - Default value if environment variable is not set.
+* `#[env(from)]` - Load from environment variable matching field's uppercase
+name.
+* `#[env(from, default = "value")]` - Default value if environment variable
+is not set.
 * `#[env(from, with = parser_fn)]` - Custom parser function.
 * `#[env(nested)]` - For nested configuration structures.
-* It is possible skip the `env` attribute for a field, but to avoid any errors
-  the value must be set using the override methods before calling `finalize`.
+* It is possible skip the `env` attribute for a field, but to avoid any
+errors the value must be set using the override methods before calling
+`finalize`.
 
 ## Error Handling
 
@@ -198,11 +200,13 @@ This produces error messages of the form:
 
 ```text
 2 configuration errors:
-  1. `Config.database_url`: Missing required environment variable 'DATABASE_URL'
-  2. `Config.port`: Failed to parse 'PORT'="invalid": invalid digit found in string
+    1. `Config.database_url`: Missing required environment variable 'DATABASE_URL'
+    2. `Config.port`: Failed to parse 'PORT'="invalid": invalid digit found in string
 ```
 
-## Alternatives
+<!-- cargo-rdme end -->
+
+## Alternatives / Motivation
 
 This crate is designed to scratch a very specific itch.
 
@@ -217,20 +221,23 @@ This crate is designed to scratch a very specific itch.
    with the bath water when parts of the configuration need to be set
    programmatically, such as when writing tests.
 4. The ability to document all of the environment variables that an application
-   might make use of as a single string and not as scattered Rust docs.
+   might make use of as a single string and not as scattered Rust docs. I'm
+   using this with `cargo insta` to both document the env vars required for my
+   applications, and to prevent unintended breakage in my configuration.
 
-If you don't have the same itch, or would rather find other workarounds, or (sensibly) want to use what everyone else is using, use:
-* [config](https://crates.io/crates/config) - the de facto crate for
-  configuring applications.
+If you don't have the same itch, or would rather find other workarounds, or
+(sensibly) want to use what everyone else is using, use:
+
+* [config](https://crates.io/crates/config) - the de facto crate for configuring
+  applications.
 * [envconfig](https://crates.io/crates/envconfig) - the primary inspiration for
-  _this_ crate. I just wanted a few more frills, otherwise I'd be using envconfig as well.
+  _this_ crate. I just wanted a few more frills, otherwise I'd be using
+  envconfig as well.
 * [envstruct](https://crates.io/crates/envstruct) - I came across this crate
   while hunting for a crate name that hadn't already been taken. It has a _very_
   similar API, and takes a different but nice approach.
 
-#### License
+## License
 
-<sup>
 Licensed under either of <a href="LICENSE-APACHE">Apache License, Version
 2.0</a> or <a href="LICENSE-MIT">MIT license</a> at your option.
-</sup>
