@@ -1,0 +1,5 @@
+error: Unknown field: `invalid`
+ --> tests/ui/05-unsupported-meta.rs:5:17
+  |
+5 |     #[env(from, invalid)]
+  |                 ^^^^^^^

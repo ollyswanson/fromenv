@@ -106,7 +106,9 @@ impl FromField for FromEnvFieldReceiver {
                             }
                         }
                     } else {
-                        accumulator.push(darling::Error::unknown_field_path(meta.path()));
+                        accumulator.push(
+                            darling::Error::unknown_field_path(meta.path()).with_span(&meta.span()),
+                        );
                     }
                 }
             }
