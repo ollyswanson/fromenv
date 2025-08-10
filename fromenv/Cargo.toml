@@ -10,7 +10,7 @@ readme = { workspace = true }
 repository = { workspace = true }
 
 [dependencies]
-fromenv-derive = { path = "../fromenv-derive" }
+fromenv-derive = { version = "0.1.0", path = "../fromenv-derive" }
 
 [dev-dependencies]
 insta = "1.43.1"
