@@ -17,7 +17,7 @@ pub trait Parser<T> {
 pub fn from_str<T>(s: &str) -> ParseResult<T>
 where
     T: std::str::FromStr,
-    T::Err: std::error::Error + 'static,
+    T::Err: std::error::Error + Send + Sync + 'static,
 {
     s.parse::<T>().map_err(|e| e.into())
 }
