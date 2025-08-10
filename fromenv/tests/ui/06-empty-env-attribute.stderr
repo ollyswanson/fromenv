@@ -1,0 +1,5 @@
+error: expected attribute arguments in parentheses: `env(...)`
+ --> tests/ui/06-empty-env-attribute.rs:5:7
+  |
+5 |     #[env]
+  |       ^^^
