@@ -86,7 +86,7 @@ impl ToTokens for FromEnvReceiver {
 impl FromEnvReceiver {
     fn validate(&self) -> darling::Result<()> {
         if !matches!(&self.vis, Visibility::Public(_)) {
-            let err = darling::Error::custom("Config derive requires a public struct")
+            let err = darling::Error::custom("FromEnv derive requires a public struct")
                 .with_span(&self.ident.span());
             Err(err)
         } else {
