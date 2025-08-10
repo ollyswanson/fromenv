@@ -1,6 +1,6 @@
 use std::str;
 
-use fromenv::{FromEnv, ParserResult};
+use fromenv::{FromEnv, ParseResult};
 
 #[test]
 fn with_into_parser() {
@@ -45,7 +45,7 @@ fn with_into_secret() {
 
 #[test]
 fn with_custom_parser_function() {
-    fn frobnicate(s: &str) -> ParserResult<u16> {
+    fn frobnicate(s: &str) -> ParseResult<u16> {
         let mut v = s.as_bytes().to_vec();
         v.rotate_left(2);
         let s = str::from_utf8(&v)?;
@@ -76,9 +76,9 @@ fn collection_types() {
     // simulate module structure
     mod foo {
         pub mod bar {
-            use fromenv::ParserResult;
+            use fromenv::ParseResult;
 
-            pub fn comma_separated(s: &str) -> ParserResult<Vec<String>> {
+            pub fn comma_separated(s: &str) -> ParseResult<Vec<String>> {
                 Ok(s.split(',').map(ToOwned::to_owned).collect())
             }
         }
