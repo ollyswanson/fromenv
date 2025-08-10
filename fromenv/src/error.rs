@@ -80,7 +80,10 @@ impl FromEnvErrors {
 
 impl fmt::Display for FromEnvErrors {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "{} configuration errors:", self.0.len())?;
+        match self.0.len() {
+            1 => writeln!(f, "1 configuration error:")?,
+            n => writeln!(f, "{n} configuration errors:")?,
+        }
 
         for (i, error) in self.0.iter().enumerate() {
             writeln!(f, "  {}. {}", i + 1, error)?;

@@ -63,3 +63,44 @@ fn captures_nested_errors() {
 
     assert_eq!(expected, actual);
 }
+
+#[test]
+fn missing_value_error() {
+    use fromenv::FromEnv;
+
+    #[derive(FromEnv, Debug)]
+    #[allow(unused)]
+    pub struct Config {
+        missing: String,
+    }
+
+    let expected = r#"1 configuration error:
+  1. `Config.missing`: No value provided
+"#;
+    let actual = Config::from_env().finalize().unwrap_err().to_string();
+
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn parse_error() {
+    use fromenv::FromEnv;
+
+    #[derive(FromEnv, Debug)]
+    #[allow(unused)]
+    pub struct Config {
+        #[env(from)]
+        count: u32,
+    }
+
+    let expected = r#"1 configuration error:
+  1. `Config.count`: Failed to parse 'COUNT'="not a number": invalid digit found in string
+"#;
+    let actual = temp_env::with_var("COUNT", Some("not a number"), || {
+        Config::from_env().finalize()
+    })
+    .unwrap_err()
+    .to_string();
+
+    assert_eq!(expected, actual);
+}
