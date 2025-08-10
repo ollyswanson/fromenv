@@ -1,0 +1,5 @@
+error: Optional fields cannot have a default
+ --> tests/ui/04-default-for-optional-field.rs:5:17
+  |
+5 |     #[env(from, default = "FOO")]
+  |                 ^^^^^^^

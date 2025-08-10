@@ -1,0 +1,23 @@
+error: `default` cannot be used without `from`
+ --> tests/ui/03-attrs-without-from.rs:5:11
+  |
+5 |     #[env(default = "a")]
+  |           ^^^^^^^
+
+error: `with` cannot be used without `from`
+ --> tests/ui/03-attrs-without-from.rs:7:11
+  |
+7 |     #[env(with = into)]
+  |           ^^^^
+
+error: `default` cannot be used without `from`
+ --> tests/ui/03-attrs-without-from.rs:9:11
+  |
+9 |     #[env(default = "a", with = into)]
+  |           ^^^^^^^
+
+error: `with` cannot be used without `from`
+ --> tests/ui/03-attrs-without-from.rs:9:26
+  |
+9 |     #[env(default = "a", with = into)]
+  |                          ^^^^
