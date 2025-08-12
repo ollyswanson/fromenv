@@ -4,15 +4,15 @@
 //! ## Features
 //!
 //! * A simple derive macro, `FromEnv`, that handles environment variable to
-//! struct mapping.
+//!   struct mapping.
 //! * Composition of configuration structs using the `#[env(nested)]` attribute.
 //! * Default values using the `#[env(from, default = "...")]` attribute.
 //! * Custom parsers using the `#[env(from, with = my_parser)]` attribute.
 //! * Comprehensive error reporting that collects all configuration issues
-//! before failing.
+//!   before failing.
 //! * A type-safe builder pattern for overriding configuration values.
 //! * Opinionated error handling, parsing errors aren't silently ignored when
-//! defaults are provided.
+//!   defaults are provided.
 //! * Documentation of configuration options using the `requirements` method.
 //!
 //! ## Usage
@@ -113,8 +113,8 @@
 //! * A default _cannot_ be specified.
 //! * Parse errors will _not_ be ignored.
 //! * When used on a `nested` configuration, the field will be set to `None` if
-//! and only if all of the errors returned from attempting to parse it are due
-//! to missing env vars or values.
+//!   and only if all of the errors returned from attempting to parse it are due
+//!   to missing env vars or values.
 //!
 //! ```rust
 //! use fromenv::FromEnv;
@@ -179,14 +179,14 @@
 //!
 //! * `#[env(from = "ENV_NAME")]` - Load from specified environment variable.
 //! * `#[env(from)]` - Load from environment variable matching field's uppercase
-//! name.
+//!   name.
 //! * `#[env(from, default = "value")]` - Default value if environment variable
-//! is not set.
+//!   is not set.
 //! * `#[env(from, with = parser_fn)]` - Custom parser function.
 //! * `#[env(nested)]` - For nested configuration structures.
 //! * It is possible skip the `env` attribute for a field, but to avoid any
-//! errors the value must be set using the override methods before calling
-//! `finalize`.
+//!   errors the value must be set using the override methods before calling
+//!   `finalize`.
 //!
 //! ## Error Handling
 //!
