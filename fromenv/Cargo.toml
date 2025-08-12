@@ -8,6 +8,7 @@ keywords = { workspace = true }
 license = { workspace = true }
 readme = { workspace = true }
 repository = { workspace = true }
+rust-version = { workspace = true }
 
 [dependencies]
 fromenv-derive = { version = "0.1.0", path = "../fromenv-derive" }
